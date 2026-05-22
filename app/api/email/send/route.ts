@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { transporter } from "@/lib/mailer";
 
 export async function POST(req: Request) {
   const { to, subject, body } = await req.json();
-  const { data, error } = await resend.emails.send({
-    from: process.env.RESEND_FROM!,
-    to,
-    subject,
-    text: body,
-  });
-  if (error) return NextResponse.json({ error }, { status: 500 });
-  return NextResponse.json(data);
+  try {
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to,
+      subject,
+      html: body,
+    });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
 }
