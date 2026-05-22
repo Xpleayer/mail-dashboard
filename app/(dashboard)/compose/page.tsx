@@ -3,11 +3,14 @@
 import { useEffect, useState } from "react";
 
 type Client = { id: number; name: string; email: string };
+type Template = { id: number; name: string; subject: string; body: string };
 
 export default function ComposePage() {
   const [clients, setClients] = useState<Client[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [clientId, setClientId] = useState("");
   const [customEmail, setCustomEmail] = useState("");
+  const [replyTo, setReplyTo] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
@@ -15,12 +18,18 @@ export default function ComposePage() {
 
   useEffect(() => {
     fetch("/api/clients").then((r) => r.json()).then(setClients);
+    fetch("/api/templates").then((r) => r.json()).then(setTemplates);
   }, []);
 
   const toEmail =
     clientId === "custom"
       ? customEmail
       : clients.find((c) => c.id === parseInt(clientId))?.email ?? "";
+
+  function loadTemplate(id: string) {
+    const t = templates.find((t) => t.id === parseInt(id));
+    if (t) { setSubject(t.subject); setBody(t.body); }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -29,11 +38,14 @@ export default function ComposePage() {
     const res = await fetch("/api/email/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to: toEmail, subject, body }),
+      body: JSON.stringify({ to: toEmail, subject, body, replyTo }),
     });
     setSending(false);
     setStatus(res.ok ? "ok" : "error");
-    if (res.ok) { setSubject(""); setBody(""); setClientId(""); setCustomEmail(""); }
+    if (res.ok) {
+      setSubject(""); setBody(""); setClientId("");
+      setCustomEmail(""); setReplyTo("");
+    }
   }
 
   return (
@@ -43,6 +55,25 @@ export default function ComposePage() {
         onSubmit={handleSubmit}
         className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-5"
       >
+        {templates.length > 0 && (
+          <div>
+            <label className="block text-xs text-gray-400 mb-1.5">
+              Load template
+            </label>
+            <select
+              defaultValue=""
+              onChange={(e) => { if (e.target.value) loadTemplate(e.target.value); }}
+              className={selectCls}
+            >
+              <option value="">Select a template…</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className="block text-xs text-gray-400 mb-1.5">Recipient</label>
           <select
@@ -74,6 +105,18 @@ export default function ComposePage() {
             />
           </div>
         )}
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5">
+            Reply-To
+          </label>
+          <input
+            type="email"
+            value={replyTo}
+            onChange={(e) => setReplyTo(e.target.value)}
+            placeholder="Optional — defaults to sender address"
+            className={inputCls}
+          />
+        </div>
         <div>
           <label className="block text-xs text-gray-400 mb-1.5">
             Subject<span className="text-red-400 ml-0.5">*</span>

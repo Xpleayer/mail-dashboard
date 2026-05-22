@@ -1,34 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-type Client = { id: number; name: string; email: string };
-type Template = { id: number; name: string; subject: string; body: string };
+type Template = {
+  id: number;
+  name: string;
+  subject: string;
+  body: string;
+  type: string;
+};
 
-type Props = { onClose: () => void; onSaved: () => void };
+type Props = {
+  template: Template | null;
+  onClose: () => void;
+  onSaved: () => void;
+};
 
-export default function ReminderModal({ onClose, onSaved }: Props) {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [templates, setTemplates] = useState<Template[]>([]);
+export default function TemplateModal({ template, onClose, onSaved }: Props) {
   const [form, setForm] = useState({
-    client_id: "",
-    type: "invoice",
-    send_at: "",
-    subject: "",
-    body: "",
+    name: template?.name ?? "",
+    type: template?.type ?? "general",
+    subject: template?.subject ?? "",
+    body: template?.body ?? "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    fetch("/api/clients").then((r) => r.json()).then(setClients);
-    fetch("/api/templates").then((r) => r.json()).then(setTemplates);
-  }, []);
-
-  function loadTemplate(id: string) {
-    const t = templates.find((t) => t.id === parseInt(id));
-    if (t) setForm((f) => ({ ...f, subject: t.subject, body: t.body }));
-  }
 
   function set(key: string, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -38,19 +34,16 @@ export default function ReminderModal({ onClose, onSaved }: Props) {
     e.preventDefault();
     setSaving(true);
     setError("");
-    const res = await fetch("/api/reminders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_id: parseInt(form.client_id),
-        type: form.type,
-        send_at: form.send_at,
-        subject: form.subject,
-        body: form.body,
-      }),
-    });
+    const res = await fetch(
+      template ? `/api/templates/${template.id}` : "/api/templates",
+      {
+        method: template ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      }
+    );
     setSaving(false);
-    if (!res.ok) { setError("Failed to save reminder."); return; }
+    if (!res.ok) { setError("Failed to save template."); return; }
     onSaved();
   }
 
@@ -58,45 +51,19 @@ export default function ReminderModal({ onClose, onSaved }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="bg-gray-900 border border-gray-800 rounded-xl w-full max-w-md p-6">
         <h2 className="text-base font-semibold text-white mb-5">
-          Add reminder
+          {template ? "Edit template" : "Add template"}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {templates.length > 0 && (
-            <div>
-              <label className="block text-xs text-gray-400 mb-1.5">
-                Load template
-              </label>
-              <select
-                defaultValue=""
-                onChange={(e) => { if (e.target.value) loadTemplate(e.target.value); }}
-                className={inputCls}
-              >
-                <option value="">Select a template…</option>
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
           <div>
             <label className="block text-xs text-gray-400 mb-1.5">
-              Client<span className="text-red-400 ml-0.5">*</span>
+              Name<span className="text-red-400 ml-0.5">*</span>
             </label>
-            <select
-              value={form.client_id}
-              onChange={(e) => set("client_id", e.target.value)}
+            <input
+              value={form.name}
+              onChange={(e) => set("name", e.target.value)}
               required
               className={inputCls}
-            >
-              <option value="">Select a client…</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div>
             <label className="block text-xs text-gray-400 mb-1.5">Type</label>
@@ -105,21 +72,10 @@ export default function ReminderModal({ onClose, onSaved }: Props) {
               onChange={(e) => set("type", e.target.value)}
               className={inputCls}
             >
+              <option value="general">General</option>
               <option value="invoice">Invoice</option>
               <option value="contract">Contract</option>
             </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-400 mb-1.5">
-              Send at<span className="text-red-400 ml-0.5">*</span>
-            </label>
-            <input
-              type="datetime-local"
-              value={form.send_at}
-              onChange={(e) => set("send_at", e.target.value)}
-              required
-              className={inputCls}
-            />
           </div>
           <div>
             <label className="block text-xs text-gray-400 mb-1.5">
@@ -140,7 +96,7 @@ export default function ReminderModal({ onClose, onSaved }: Props) {
               value={form.body}
               onChange={(e) => set("body", e.target.value)}
               required
-              rows={4}
+              rows={5}
               className={inputCls + " resize-none"}
             />
           </div>
