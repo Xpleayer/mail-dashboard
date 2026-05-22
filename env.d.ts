@@ -11,5 +11,7 @@ declare namespace NodeJS {
     SMTP_PASS: string;
     SMTP_FROM: string;
     N8N_SECRET: string;
+    N8N_API_URL: string;
+    N8N_API_KEY: string;
   }
 }
